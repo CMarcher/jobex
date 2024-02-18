@@ -1,0 +1,12 @@
+# Ignore IntelliJ IDEA files
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Ignore XML files
+*.xml
+
+# Ignore all directories named 'target'
+**/target/
+
