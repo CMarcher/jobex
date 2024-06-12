@@ -10,3 +10,6 @@ chromiumoxide = { git = "https://github.com/mattsse/chromiumoxide", features = [
 chromiumoxide_cdp = "0.6.0"
 tokio = "1.36.0"
 futures = "0.3.30"
+async-trait = "0.1.80"
+reqwest = "0.12.4"
+serde_json = "1.0.117"
