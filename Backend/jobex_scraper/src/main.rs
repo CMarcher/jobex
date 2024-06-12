@@ -5,7 +5,7 @@ use reqwest::Client;
 use tokio::join;
 use tokio::time::sleep;
 use jobex_scraper::browser::Browser;
-use jobex_scraper::scrapers::{IndeedScraper, Scraper, SeekScraper};
+use jobex_scraper::scrapers::{IndeedScraper, Scraper, SeekScraper, TradeMeScraper};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -26,10 +26,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     
     let indeed_scraper = IndeedScraper::new(&browser);
     let seek_scraper = SeekScraper::new(Client::default());
+    let trade_me_scraper = TradeMeScraper::new(&browser);
     
     for job in jobs {
         let (job_count, _) = join!(
-            seek_scraper.get_job_count(job),
+            trade_me_scraper.get_job_count(job),
             sleep(Duration::from_millis(500))
         );
 

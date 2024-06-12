@@ -1,7 +1,10 @@
 use std::error::Error;
+use std::sync::{Mutex};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::Value;
+use once_cell::unsync::Lazy;
+use regex::Regex;
 use crate::browser::Browser;
 
 #[async_trait]
@@ -24,7 +27,7 @@ impl<'a> Scraper for IndeedScraper<'a> {
     async fn get_job_count(&self, job_title: &str) -> Result<Option<usize>, Box<dyn Error>> {
         let page = self.browser.create_page().await?;
 
-        let job_query_string = convert_job_title_to_query_string(job_title);
+        let job_query_string = convert_job_title_to_query_string(job_title, "+");
 
         page.goto(format!("https://nz.indeed.com/jobs?q={}", job_query_string)).await?;
         page.wait_for_navigation_response().await?;
@@ -61,7 +64,7 @@ impl SeekScraper {
 #[async_trait]
 impl Scraper for SeekScraper {
     async fn get_job_count(&self, job_title: &str) -> Result<Option<usize>, Box<dyn Error>> {
-        let job_query_string = convert_job_title_to_query_string(job_title);
+        let job_query_string = convert_job_title_to_query_string(job_title, "+");
         let request_url = format!("https://jobsearch-api-ts.cloud.seek.com.au/v4/counts?siteKey=NZ-Main&where=All+New+Zealand&keywords={}", job_query_string);
         let response = self.http_client.get(request_url).send().await?;
 
@@ -77,7 +80,7 @@ impl Scraper for SeekScraper {
             .ok_or("Failed to parse list of job counts from Seek job count response.")?
             .iter()
             .sum::<u64>();
-        
+
         Ok(Some(total as usize))
     }
 }
@@ -91,15 +94,44 @@ impl Scraper for JoraScraper {
     }
 }
 
-pub struct TradeMeScraper;
+pub struct TradeMeScraper<'a> {
+    browser: &'a Browser
+}
 
-#[async_trait]
-impl Scraper for TradeMeScraper {
-    async fn get_job_count(&self, job_title: &str) -> Result<Option<usize>, Box<dyn Error>> {
-        todo!()
+impl<'a> TradeMeScraper<'a> {
+    pub fn new(browser: &'a Browser) -> Self {
+        Self { browser }
     }
 }
 
-fn convert_job_title_to_query_string(job_title: &str) -> String {
-    job_title.replace(' ', "+")
+#[async_trait]
+impl<'a> Scraper for TradeMeScraper<'a> {
+    async fn get_job_count(&self, job_title: &str) -> Result<Option<usize>, Box<dyn Error>> {
+        let page = self.browser.create_page().await?;
+        let job_query_string = convert_job_title_to_query_string(job_title, "%20");
+
+        page.goto(format!("https://www.trademe.co.nz/a/jobs/search?search_string={}", job_query_string)).await?;
+        page.wait_for_navigation_response().await?;
+
+        let job_count_h3 = page.find_element("h3.tm-search-header-result-count__heading").await?;
+        let count_text = job_count_h3.inner_text().await?;
+
+        static digit_matcher: Mutex<Lazy<Regex>> = Mutex::new(Lazy::new(|| Regex::new(r"\d+").unwrap()));
+
+        let Some(count_text) = count_text else {
+            return Ok(None);
+        };
+
+        let search_result = digit_matcher.lock()?
+            .find(&count_text)
+            .ok_or("Could not extract job count from TradeMe search.")?
+            .as_str()
+            .parse::<usize>()?;
+        
+        Ok(Some(search_result))
+    }
+}
+
+fn convert_job_title_to_query_string(job_title: &str, space_replacement: &str) -> String {
+    job_title.replace(' ', space_replacement)
 }
