@@ -862,6 +862,8 @@ dependencies = [
  "chromiumoxide",
  "chromiumoxide_cdp 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures",
+ "once_cell",
+ "regex",
  "reqwest",
  "serde_json",
  "tokio",
